@@ -60,5 +60,5 @@ window.groundStage = (() => {
     }
     ctx.fillStyle = '#40513422'; ctx.fillRect(0, 0, w, h); ctx.restore();
   }
-  return { boundary, terrain, background, zone: time => zones[Math.min(4, Math.floor(time / 18))] };
+  return { boundary, terrain, background, zone: time => time>=44&&time<76?'廃墟市街地':zones[Math.min(4, Math.floor(time / 18))] };
 })();

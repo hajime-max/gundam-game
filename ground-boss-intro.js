@@ -2,7 +2,7 @@
 // Stage-one camera sequence. Combat coordinates and input sensitivity stay unchanged.
 window.createGroundBossIntro = function({canvas,ctx,width:W,height:H,images,background}) {
   const voice=new Audio();
-  voice.preload='none';voice.src='game-assets/audio/ground-boss-dialogue.wav?v=133';voice.volume=1;
+  voice.preload='none';voice.src='game-assets/audio/ground-boss-dialogue.wav?v=139';voice.volume=1;
   const shot=document.createElement('canvas');shot.width=W;shot.height=H;
   let active=false,done=false,phase='in',age=0,talk=0,pending=false,retry=0,epoch=0;
   const ease=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
