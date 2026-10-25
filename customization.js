@@ -5,7 +5,7 @@ const order=['speed','spread','bazooka','rifle','hammer','javelin','option','bar
 const labels={speed:'SPEED',spread:'拡散バルカン',bazooka:'バズーカ',rifle:'ビームライフル',hammer:'ハンマー',javelin:'ジャベリン',option:'OPTION',barrier:'バリア',evolve:'進化'};
 const defs={
  hp:{name:'最大HP',cost:[3,5,8],effect:'1段階につき最大HP＋10（コスト・上限は仮）'},
- vulcanMix:{name:'バルカン併用',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
+ vulcanMix:{name:'バルカン併用解放',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
  spread:{name:'拡散弾数',cost:[5,8],effect:'3方向 → 5方向 → 7方向'},
  bazookaRapid:{name:'バズーカ連射／2丁持ち',cost:[8],effect:'発射間隔0.7 → 0.35秒（数値・コスト仮）'},
  riflePower:{name:'ライフル威力',cost:[4,7,10],effect:'1段階につき＋20％（効果量仮）'},
@@ -22,8 +22,8 @@ const defs={
  ballBlast:{name:'ボール系爆風',cost:[3,5,8],effect:'進化後も継承。1段階＋15px（仮）'},
  gmMelee:{name:'ジム近接支援',cost:[8],effect:'ジムのみ自動サーベル。ガンキャノンには適用なし'}
 };
-// v143: higher customization prices; repair stays at the agreed 1pt.
-for(const d of Object.values(defs))d.cost=d.cost.map(n=>n*2);
+// v157 trial: upgrades cost three times v156; repair remains 1pt per HP.
+for(const d of Object.values(defs))d.cost=d.cost.map(n=>n*6);
 function create(storage){
  const key='colony-customization-v1';let saved={version:1,bank:0,levels:{},order:[...order]},temporary={},temporaryOrder=null,settings={},pending=0,settled=false,saveError='';
  const validOrder=x=>Array.isArray(x)&&x.length===order.length&&new Set(x).size===order.length&&x.every(k=>order.includes(k));
