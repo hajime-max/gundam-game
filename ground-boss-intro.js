@@ -1,14 +1,14 @@
 'use strict';
 // Stage-one camera sequence. Combat coordinates and input sensitivity stay unchanged.
 window.createGroundBossIntro = function({canvas,ctx,width:W,height:H,images,background}) {
-  const voice=new Audio();
+  const voice=window.GameSound?window.GameSound.create():new Audio();
   voice.preload='none';voice.src='game-assets/audio/ground-boss-dialogue.wav?v=139';voice.volume=1;
   const shot=document.createElement('canvas');shot.width=W;shot.height=H;
   let active=false,done=false,phase='in',age=0,talk=0,pending=false,retry=0,epoch=0;
   const ease=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
   function pause(){epoch++;pending=false;voice.pause();}
   function reset(){pause();try{voice.currentTime=0;}catch{}active=false;done=false;age=talk=retry=0;phase='in';}
-  function prime(){const token=epoch;voice.muted=true;voice.volume=0;try{Promise.resolve(voice.play()).then(()=>{if(token!==epoch||active)return;voice.pause();try{voice.currentTime=0;}catch{}voice.muted=false;voice.volume=1;}).catch(()=>{if(token===epoch&&!active){voice.muted=false;voice.volume=1;}});}catch{voice.muted=false;voice.volume=1;}}
+  function prime(){}
   function start(){voice.muted=false;shot.getContext('2d').drawImage(canvas,0,0);active=true;phase='in';age=talk=0;}
   function play(){if(pending||!voice.paused||retry>0)return;pending=true;const token=epoch;voice.volume=1;let playback;try{playback=voice.play();}catch{pending=false;retry=.5;return;}Promise.resolve(playback).then(()=>{if(token===epoch)pending=false;}).catch(()=>{if(token===epoch){pending=false;retry=.5;}});}
   function update(dt,muted){retry=Math.max(0,retry-dt);if(phase==='in'){age+=dt;if(age>=1.5){phase='talk';age=0;}return;}if(phase==='talk'){if(muted){pause();talk+=dt;}else if(voice.error){talk+=dt;}else{if(Math.abs(voice.currentTime-talk)>.2){try{voice.currentTime=talk;}catch{}}play();talk=voice.currentTime;}if(talk>=34.4-.03||voice.ended){pause();phase='out';age=0;}return;}age+=dt;if(age>=1.5){active=false;done=true;}}
