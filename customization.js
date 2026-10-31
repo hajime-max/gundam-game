@@ -1,8 +1,8 @@
 /* v140: economy and explicit purchases, independent of flight controls. */
 (function(root){
 'use strict';
-const order=['speed','spread','bazooka','rifle','hammer','javelin','option','barrier','evolve'];
-const labels={speed:'SPEED',spread:'拡散バルカン',bazooka:'バズーカ',rifle:'ビームライフル',hammer:'ハンマー',javelin:'ジャベリン',option:'OPTION',barrier:'バリア',evolve:'進化'};
+const order=['speed','spread','bazooka','rifle','hammer','javelin','javelinVertical','option','barrier','evolve'];
+const labels={speed:'SPEED',spread:'拡散バルカン',bazooka:'バズーカ',rifle:'ビームライフル',hammer:'ハンマー',javelin:'ジャベリン',javelinVertical:'上下ジャベリン',option:'OPTION',barrier:'バリア',evolve:'進化'};
 const defs={
  hp:{name:'最大HP',cost:[3,5,8],effect:'1段階につき最大HP＋10（コスト・上限は仮）'},
  vulcanMix:{name:'バルカン併用解放',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
@@ -27,7 +27,8 @@ for(const d of Object.values(defs))d.cost=d.cost.map(n=>n*6);
 function create(storage){
  const key='colony-customization-v1';let saved={version:1,bank:0,levels:{},order:[...order]},temporary={},temporaryOrder=null,settings={},pending=0,settled=false,saveError='';
  const validOrder=x=>Array.isArray(x)&&x.length===order.length&&new Set(x).size===order.length&&x.every(k=>order.includes(k));
- try{const s=JSON.parse(storage.getItem(key));if(s?.version===1){saved.bank=Number.isSafeInteger(s.bank)&&s.bank>=0?s.bank:0;for(const [k,d]of Object.entries(defs))saved.levels[k]=Number.isInteger(s.levels?.[k])?Math.max(0,Math.min(d.cost.length,s.levels[k])):0;if(validOrder(s.order))saved.order=s.order;}}catch{}
+ const migrateOrder=x=>{if(validOrder(x))return x;if(Array.isArray(x)&&x.length===order.length-1&&new Set(x).size===x.length&&x.every(k=>order.includes(k))&&!x.includes('javelinVertical')){const next=[...x];next.splice(next.indexOf('javelin')+1,0,'javelinVertical');return next;}return null;};
+ try{const s=JSON.parse(storage.getItem(key));if(s?.version===1){saved.bank=Number.isSafeInteger(s.bank)&&s.bank>=0?s.bank:0;for(const [k,d]of Object.entries(defs))saved.levels[k]=Number.isInteger(s.levels?.[k])?Math.max(0,Math.min(d.cost.length,s.levels[k])):0;const migrated=migrateOrder(s.order);if(migrated)saved.order=migrated;}}catch{}
  const persist=()=>{try{storage.setItem(key,JSON.stringify(saved));saveError='';return true;}catch{saveError='保存できません。ブラウザの保存許可を確認してください。';return false;}};
  const level=k=>Math.max(saved.levels[k]||0,temporary[k]||0);
  return {defs,labels,defaultOrder:order,level,selected(k){return Math.min(settings[k]??level(k),level(k));},select(k,n){if(!defs[k]||!Number.isInteger(n)||n<0||n>level(k))return false;settings[k]=n;return true;},

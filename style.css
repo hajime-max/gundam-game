@@ -38,3 +38,5 @@ canvas{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch
  .game-frame:fullscreen .topline,.game-frame:fullscreen .powerbar,.game-frame:fullscreen .progress{flex-shrink:0}
  .game-frame:fullscreen .screen{flex:1;min-height:0;width:100%;height:auto;margin:0;aspect-ratio:auto}
 }
+
+.mobile-actions>div:first-child{margin-top:0}.burner-control{display:none!important}.stage4-active .burner-control{display:flex!important}
