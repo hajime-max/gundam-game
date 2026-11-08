@@ -25,3 +25,5 @@ Object.assign(window.StageFourGeneratedArt,{"humanAmuroWalk0": {"uri": "assets/s
 
 
 Object.assign(window.StageFourGeneratedArt,{"humanCoverContainer": {"uri": "assets/space-container-side-v178.png", "sx": 81, "sy": 99, "sw": 1092, "sh": 1023}});
+
+window.GameSpriteMetadata.sheets["assets/sd-char-zaku-punches.png"]=[{"sx": 135, "sy": 211, "sw": 678, "sh": 521}, {"sx": 1055, "sy": 207, "sw": 585, "sh": 534}];

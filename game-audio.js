@@ -1,10 +1,24 @@
 (function(root){
 'use strict';
-let shared=null;const buffers=new Map();
+let shared=null,voiceOutput=null;const buffers=new Map();
 function context(){if(!shared){const C=root.AudioContext||root.webkitAudioContext;if(!C)return null;shared=new C();}return shared;}
+function voiceBus(c){
+ if(voiceOutput)return voiceOutput;
+ // Boost quiet dialogue and soften peaks before they reach the output.
+ const curve=new Float32Array(2049);
+ for(let i=0;i<curve.length;i++){
+  const sample=(i/1024-1)*1.5;
+  const magnitude=Math.abs(sample);
+  curve[i]=Math.sign(sample)*(magnitude<=.8?magnitude:.8+.18*(1-Math.exp(-((magnitude-.8)/.18))));
+ }
+ voiceOutput=c.createWaveShaper();
+ voiceOutput.curve=curve;
+ voiceOutput.connect(c.destination);
+ return voiceOutput;
+}
 function decode(src){if(buffers.has(src))return buffers.get(src);const promise=(async()=>{const c=context(),response=await fetch(src);if(!response.ok)throw Error('Audio HTTP '+response.status);const bytes=await response.arrayBuffer();return await new Promise((resolve,reject)=>{const result=c.decodeAudioData(bytes,resolve,reject);result?.then?.(resolve,reject);});})();buffers.set(src,promise);promise.catch(()=>buffers.delete(src));return promise;}
 class BufferedAudio{
- constructor(src=''){this.src=src;this.preload='none';this.error=null;this.ended=false;this._buffer=null;this._source=null;this._gain=null;this._offset=0;this._start=0;this._token=0;this._pending=null;this._volume=1;this._muted=false;this._loop=false;this._events=new Map();}
+ constructor(src='',voice=false){this.src=src;this._voice=voice;this.preload='none';this.error=null;this.ended=false;this._buffer=null;this._source=null;this._gain=null;this._offset=0;this._start=0;this._token=0;this._pending=null;this._volume=1;this._muted=false;this._loop=false;this._events=new Map();}
  addEventListener(name,fn,options){const list=this._events.get(name)||[];list.push({fn,once:!!options?.once});this._events.set(name,list);}
  removeEventListener(name,fn){this._events.set(name,(this._events.get(name)||[]).filter(e=>e.fn!==fn));}
  _emit(name){for(const e of [...(this._events.get(name)||[])]){if(e.once)this.removeEventListener(name,e.fn);e.fn.call(this,{type:name,target:this});}}
@@ -16,8 +30,8 @@ class BufferedAudio{
  get loop(){return this._loop;}set loop(value){this._loop=!!value;if(this._source)this._source.loop=this._loop;}
  _mix(){if(this._gain)this._gain.gain.value=this._muted?0:this._volume;}
  load(){const src=this.src;decode(src).then(b=>{if(this.src===src){this._buffer=b;this.error=null;}}).catch(e=>{this.error=e;});}
- play(){if(this._source)return Promise.resolve();if(this._pending)return this._pending;const token=++this._token,src=this.src;this.error=null;this.ended=false;const task=(async()=>{try{const c=context();await c.resume();const b=await decode(src);if(this._token!==token||this.src!==src)return;if(c.state==='suspended')throw Object.assign(Error('Audio context suspended'),{name:'NotAllowedError'});this._buffer=b;if(this._offset>=b.duration)this._offset=0;const source=c.createBufferSource(),gain=c.createGain();source.buffer=b;source.loop=this._loop;source.connect(gain);gain.connect(c.destination);this._source=source;this._gain=gain;this._start=c.currentTime;this._mix();source.onended=()=>{if(this._source!==source)return;this._source=null;this._gain=null;this._offset=b.duration;this.ended=true;source.disconnect();gain.disconnect();this._emit('ended');};source.start(0,this._offset);}catch(e){if(this._token===token){this.error=e;this._emit('error');}throw e;}})();this._pending=task;task.then(()=>{if(this._pending===task)this._pending=null;},()=>{if(this._pending===task)this._pending=null;});return task;}
+ play(){if(this._source)return Promise.resolve();if(this._pending)return this._pending;const token=++this._token,src=this.src;this.error=null;this.ended=false;const task=(async()=>{try{const c=context();await c.resume();const b=await decode(src);if(this._token!==token||this.src!==src)return;if(c.state==='suspended')throw Object.assign(Error('Audio context suspended'),{name:'NotAllowedError'});this._buffer=b;if(this._offset>=b.duration)this._offset=0;const source=c.createBufferSource(),gain=c.createGain();source.buffer=b;source.loop=this._loop;source.connect(gain);gain.connect(this._voice?voiceBus(c):c.destination);this._source=source;this._gain=gain;this._start=c.currentTime;this._mix();source.onended=()=>{if(this._source!==source)return;this._source=null;this._gain=null;this._offset=b.duration;this.ended=true;source.disconnect();gain.disconnect();this._emit('ended');};source.start(0,this._offset);}catch(e){if(this._token===token){this.error=e;this._emit('error');}throw e;}})();this._pending=task;task.then(()=>{if(this._pending===task)this._pending=null;},()=>{if(this._pending===task)this._pending=null;});return task;}
  pause(){const offset=this.currentTime;this._token++;this._pending=null;if(this._source){const source=this._source,gain=this._gain;this._source=null;this._gain=null;source.onended=null;try{source.stop();}catch{}source.disconnect();gain?.disconnect();}this._offset=offset;}
 }
-root.GameSound={context,unlock(){const c=context();return c?c.resume():Promise.resolve();},create(src){return root.AudioContext||root.webkitAudioContext?new BufferedAudio(src):new root.Audio(src);}};
+root.GameSound={context,unlock(){const c=context();return c?c.resume():Promise.resolve();},create(src){return root.AudioContext||root.webkitAudioContext?new BufferedAudio(src):new root.Audio(src);},createVoice(src){return root.AudioContext||root.webkitAudioContext?new BufferedAudio(src,true):new root.Audio(src);}};
 })(window);

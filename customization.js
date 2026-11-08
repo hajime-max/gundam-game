@@ -5,7 +5,7 @@ const order=['speed','spread','bazooka','rifle','hammer','javelin','javelinVerti
 const labels={speed:'SPEED',spread:'拡散バルカン',bazooka:'バズーカ',rifle:'ビームライフル',hammer:'ハンマー',javelin:'ジャベリン',javelinVertical:'上下ジャベリン',option:'OPTION',barrier:'バリア',evolve:'進化'};
 const defs={
  hp:{name:'最大HP',cost:[3,5,8],effect:'1段階につき最大HP＋10（コスト・上限は仮）'},
- vulcanMix:{name:'バルカン併用解放',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
+ vulcanMix:{runOnly:true,name:'バルカン併用解放',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
  spread:{name:'拡散弾数',cost:[5,8],effect:'3方向 → 5方向 → 7方向'},
  bazookaRapid:{name:'バズーカ連射／2丁持ち',cost:[8],effect:'発射間隔0.7 → 0.35秒（数値・コスト仮）'},
  riflePower:{name:'ライフル威力',cost:[4,7,10],effect:'1段階につき＋20％（効果量仮）'},
@@ -24,11 +24,11 @@ const defs={
 };
 // v157 trial: upgrades cost three times v156; repair remains 1pt per HP.
 for(const d of Object.values(defs))d.cost=d.cost.map(n=>n*6);
-function create(storage){
- const key='colony-customization-v1';let saved={version:1,bank:0,levels:{},order:[...order]},temporary={},temporaryOrder=null,settings={},pending=0,settled=false,saveError='';
+function create(storage,{vulcanMix=0}={}){
+ const key='colony-customization-v1';let saved={version:1,bank:0,levels:{},order:[...order]},temporary=vulcanMix?{vulcanMix}:{},temporaryOrder=null,settings={},pending=0,settled=false,saveError='';
  const validOrder=x=>Array.isArray(x)&&x.length===order.length&&new Set(x).size===order.length&&x.every(k=>order.includes(k));
  const migrateOrder=x=>{if(validOrder(x))return x;if(Array.isArray(x)&&x.length===order.length-1&&new Set(x).size===x.length&&x.every(k=>order.includes(k))&&!x.includes('javelinVertical')){const next=[...x];next.splice(next.indexOf('javelin')+1,0,'javelinVertical');return next;}return null;};
- try{const s=JSON.parse(storage.getItem(key));if(s?.version===1){saved.bank=Number.isSafeInteger(s.bank)&&s.bank>=0?s.bank:0;for(const [k,d]of Object.entries(defs))saved.levels[k]=Number.isInteger(s.levels?.[k])?Math.max(0,Math.min(d.cost.length,s.levels[k])):0;const migrated=migrateOrder(s.order);if(migrated)saved.order=migrated;}}catch{}
+ try{const s=JSON.parse(storage.getItem(key));if(s?.version===1){saved.bank=Number.isSafeInteger(s.bank)&&s.bank>=0?s.bank:0;for(const [k,d]of Object.entries(defs))if(!d.runOnly)saved.levels[k]=Number.isInteger(s.levels?.[k])?Math.max(0,Math.min(d.cost.length,s.levels[k])):0;const migrated=migrateOrder(s.order);if(migrated)saved.order=migrated;}}catch{}
  const persist=()=>{try{storage.setItem(key,JSON.stringify(saved));saveError='';return true;}catch{saveError='保存できません。ブラウザの保存許可を確認してください。';return false;}};
  const level=k=>Math.max(saved.levels[k]||0,temporary[k]||0);
  return {defs,labels,defaultOrder:order,level,selected(k){return Math.min(settings[k]??level(k),level(k));},select(k,n){if(!defs[k]||!Number.isInteger(n)||n<0||n>level(k))return false;settings[k]=n;return true;},
@@ -37,9 +37,9 @@ function create(storage){
  collect(n){if(!settled&&Number.isSafeInteger(n)&&n>0)pending+=n;},
  clear(){if(settled)return 0;const n=pending;saved.bank+=n;pending=0;settled=true;persist();return n;},
  startStage(){pending=0;settled=false;},
- resetRun(){temporary={};temporaryOrder=null;settings={};pending=0;settled=false;},
+ resetRun(){temporary=vulcanMix?{vulcanMix}:{};temporaryOrder=null;settings={};pending=0;settled=false;},
  fail(){temporary={};temporaryOrder=null;settings={};pending=0;settled=false;},
- buy(k,mode,confirmed=false){if(!settled||!defs[k]||!['run','permanent'].includes(mode))return false;if(mode==='permanent'&&!confirmed)return false;const item=this.info(k,mode);if(item.cost===null||saved.bank<item.cost)return false;const before=JSON.stringify(saved);saved.bank-=item.cost;if(mode==='permanent')saved.levels[k]=item.level+1;else temporary[k]=item.level+1;if(!persist()){saved=JSON.parse(before);if(mode==='run')temporary[k]=item.level;return false;}return true;},
+ buy(k,mode,confirmed=false){if(!settled||!defs[k]||!['run','permanent'].includes(mode))return false;if(mode==='permanent'&&(!confirmed||defs[k].runOnly))return false;const item=this.info(k,mode);if(item.cost===null||saved.bank<item.cost)return false;const before=JSON.stringify(saved);saved.bank-=item.cost;if(mode==='permanent')saved.levels[k]=item.level+1;else temporary[k]=item.level+1;if(!persist()){saved=JSON.parse(before);if(mode==='run')temporary[k]=item.level;return false;}return true;},
  spend(points){if(!settled||!Number.isSafeInteger(points)||points<1||saved.bank<points)return false;saved.bank-=points;if(!persist()){saved.bank+=points;return false;}return true;},
  repair(points=1){return this.spend(points);},
  reorder(next,mode,confirmed=false){if(!settled||!validOrder(next)||!['run','permanent'].includes(mode)||mode==='permanent'&&!confirmed)return false;const base=mode==='permanent'?saved.order:this.order;if(next.every((k,i)=>k===base[i]))return true;const cost=mode==='permanent'?12:4;if(saved.bank<cost)return false;const before=JSON.stringify(saved);saved.bank-=cost;if(mode==='permanent')saved.order=[...next];if(!persist()){saved=JSON.parse(before);return false;}if(mode==='run')temporaryOrder=[...next];return true;},
