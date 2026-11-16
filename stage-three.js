@@ -695,5 +695,5 @@ window.createStageThree=function(api){
   }
   ctx.restore();
  }
- return {drawBackdrop,drawDebris,drawFade,epilogueBgmGain,playerEvacuating,inTransfer,filterDamage,charVulnerable,charDamage,beginChar,charArt,reset,update,updateMissile,updateChar,drawCharCue,updateEnemy,onKilled,interceptShot,constrain,drawEnemy,drawBoss,get bossStarted(){return bossStarted;}};
+ return {drawBackdrop,drawDebris,drawFade,epilogueBgmGain,playerEvacuating,inTransfer,filterDamage,charVulnerable,charDamage,beginChar,planCharRush:planRush,charArt,reset,update,updateMissile,updateChar,drawCharCue,updateEnemy,onKilled,interceptShot,constrain,drawEnemy,drawBoss,get bossStarted(){return bossStarted;}};
 };

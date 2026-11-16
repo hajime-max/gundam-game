@@ -7,7 +7,7 @@ const defs={
  hp:{name:'最大HP',cost:[3,5,8],effect:'1段階につき最大HP＋10（コスト・上限は仮）'},
  vulcanMix:{runOnly:true,name:'バルカン併用解放',cost:[8],effect:'バズーカ・ビームとバルカンを併用'},
  spread:{name:'拡散弾数',cost:[5,8],effect:'3方向 → 5方向 → 7方向'},
- bazookaRapid:{name:'バズーカ連射／2丁持ち',cost:[8],effect:'発射間隔0.7 → 0.35秒（数値・コスト仮）'},
+ bazookaRapid:{name:'バズーカ連射',cost:[8],effect:'発射間隔0.7 → 0.35秒（数値・コスト仮）'},
  riflePower:{name:'ライフル威力',cost:[4,7,10],effect:'1段階につき＋20％（効果量仮）'},
  rifleWidth:{name:'ライフルの太さ',cost:[3,5,8],effect:'1段階につき＋4px（仮）'},
  hammerLength:{name:'ハンマー長さ解放',cost:[3,5,8],effect:'半径60／85／110／135pxから選択（仮）'},

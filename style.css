@@ -40,3 +40,21 @@ canvas{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch
 }
 
 .mobile-actions>div:first-child{margin-top:0}.burner-control{display:none!important}.stage4-active .burner-control{display:flex!important}
+
+#cover-control{position:absolute;right:16px;bottom:18px;z-index:3}
+#cover-control[hidden]{display:none}
+@media(max-width:900px), (pointer:coarse){#cover-control{right:max(12px,env(safe-area-inset-right));bottom:calc(86px + env(safe-area-inset-bottom))}}
+#cover-button{min-width:76px;min-height:44px;touch-action:manipulation;font:bold 14px sans-serif;background:#2d3019;border:1px solid #e2d071;border-radius:10px;color:#fff0a0}
+#cover-button:disabled{opacity:.52}
+#luna2-reroll,#luna2-extract{
+ position:absolute;right:16px;bottom:18px;z-index:3;min-height:44px;
+ padding:0 13px;color:#ddfbff;background:#122c3c;border:1px solid #80bacb;
+ border-radius:9px;touch-action:manipulation;font-weight:700
+}
+#luna2-extract{bottom:70px;color:#143023;background:#a6edc8;border-color:#d3ffe7}
+#luna2-reroll,#luna2-extract{right:auto;left:16px}
+#luna2-reroll[hidden],#luna2-extract[hidden]{display:none}
+@media(max-width:900px), (pointer:coarse){
+ #luna2-reroll{left:max(12px,env(safe-area-inset-left));bottom:calc(86px + env(safe-area-inset-bottom))}
+ #luna2-extract{left:max(12px,env(safe-area-inset-left));bottom:calc(138px + env(safe-area-inset-bottom))}
+}
