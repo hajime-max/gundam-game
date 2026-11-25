@@ -1,6 +1,9 @@
 (function(root){
 'use strict';
 root.StageFiveArt={
+ moon:['assets/white-daytime-moon-lower-left-phase-v3.png',1,1],
+ earth:['assets/earth-lower-screen-horizon-v2.png',1,1],
+ landingSuit:['assets/sd-gundam-cooling-film-4frames.png',2,2],
  komusai:['assets/komusai-atmospheric-reentry-right.png',1,1],
  entryNew:['assets/sd-gundam-blue-film-continuation-12frames.png',4,3],
  coolingNew:['assets/sd-gundam-flame-orange-to-blue-12frames.png',4,3],
@@ -15,8 +18,10 @@ root.StageFiveArt={
 };
 root.createStageFive=function(api){
  const {W,H,ctx,images,sprite}=api;
- const DESCENT_SECONDS=90,COOLING_SECONDS=6,COOLING_START=50,COOLING_TRANSITION=34;
+ const HOT_ZONE_HEIGHT=125;
+ const DESCENT_SECONDS=30,COOLING_SECONDS=6,COOLING_START=15,COOLING_TRANSITION=15,COOLING_VOICE_CUE=11;
  const bodyFrames={
+ landingSuit:[[389,335,260],[338,335,260],[389,315,260],[338,315,260]],
  entryNew:[[225.5,166.5,244],[218.5,166,243],[213,166,243],[210,165.5,242],[222,179,237],[218.5,178.5,238],[214,179,237],[211,179,237],[222.5,173.5,248],[218.5,173.5,248],[215,173.5,248],[210.5,173.5,248]],
  coolingNew:[[224.5,165.5,242],[219,166,243],[215,168.5,248],[217.5,170.5,252],[223.5,171,253],[223.5,171,253],[220.5,171,253],[219,171,253],[223.5,171,253],[223.5,171,253],[223,171,253],[222.5,171,253]],
   entryGundam:[[395.5,338,241],[328.5,340,237],[395,310.5,240],[328,312.5,240]],
@@ -25,13 +30,13 @@ root.createStageFive=function(api){
    [217,180.5,250],[219,180.5,250],[217,180.5,250],[219.5,180.5,250]]
  };
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
- const names={escort:'カプセル護衛',waves:'ムサイ援護ミサイル',char:'シャア / バズーカ爆風',retreat:'シャア撤退',lastZaku:'突入直前 / 最後のザク',burnup:'ザク燃焼',descent:'大気圏突入',cooling:'冷却膜展開',landing:'ホワイトベースへ着艦',finish:'地球降下'};
+ const names={escort:'カプセル護衛',waves:'ムサイ援護ミサイル',char:'シャア / バズーカ爆風',retreat:'シャア撤退',lastZaku:'突入直前 / 最後のザク',burnup:'ザク燃焼',descent:'大気圏突入',cooling:'冷却膜展開',blueSky:'大気圏突破',landing:'ホワイトベースへ着艦',finish:'地球降下'};
  let phase,age,total,waveClock,missileClock,rockClock,ace,lastZaku,pod,hazards,projectiles,rocks;
- let budget,completed,notice,noticeUntil,entryAge,gritClock;
+ let budget,completed,notice,noticeUntil,entryAge,gritClock,coolingCue,landingY,landingDeckY,landingFuel,fuelDrops,fuelClock,earthCue,finishFade,skyShipStart,landingShipStart,skyAge;
  function reset(bossOnly=false){
   phase=bossOnly?'char':'escort';age=total=0;waveClock=missileClock=rockClock=0;
   ace=lastZaku=null;pod={x:W+60,y:H*.56,hp:10,max:10,failed:false};
-  hazards=[];projectiles=[];rocks=[];budget=4;completed=false;notice='';noticeUntil=0;entryAge=0;gritClock=.6;
+  hazards=[];projectiles=[];rocks=[];budget=4;completed=false;notice='';noticeUntil=0;entryAge=0;gritClock=.6;coolingCue={};landingY=105;landingDeckY=H*.82;landingFuel=0;fuelDrops=[];fuelClock=2;earthCue={};finishFade=0;skyShipStart={x:150,y:150};landingShipStart=H*.82+35;skyAge=0;
  }
  function say(text,duration=3){notice=text;noticeUntil=total+duration;}
  function spawn(kind,x,y,hp,extra={}){
@@ -40,13 +45,15 @@ root.createStageFive=function(api){
  function enter(next){
   phase=next;age=0;waveClock=missileClock=rockClock=0;api.clearThreats();
   projectiles=[];hazards=[];
-  if(!['burnup','descent'].includes(next))rocks=[];
+  if(!['burnup','descent','cooling'].includes(next))rocks=[];
   api.setBoss(null);
   if(next==='char'){ace=spawn('char',W+70,H*.36,64);api.setBoss(ace);say('炸裂後も残る爆風を避けろ',4);}
   if(next==='lastZaku'){if(ace){ace.recovery={};ace.recoveryX=ace.x;ace.recoveryY=ace.y;ace.boarding=0;ace.storyStep=api.storyVoice?'bright':'char';if(api.storyVoice)api.storyVoice('stage5BrightReturn');else api.recoveryVoice?.();}lastZaku=spawn('lastZaku',W+50,H*.46,38);api.setBoss(lastZaku);say('大気圏突入 — 最後のザクとの戦闘',4);}
   if(next==='descent'){api.clearPickups?.();say('斜め右下へ降下 — 燃える隕石を回避',4);}
-  if(next==='cooling')say('冷却完了 — 着艦準備',5);
-  if(next==='landing'){const p=api.player();p.x=W*.23;p.y=105;api.stopTarget(p);say('落下を補正し、緑の着艦範囲へ誘導',5);}
+  if(next==='cooling'){coolingCue.afterChar={};api.storyVoice?.('stage5CharAfterCooling');say('冷却完了 — 着艦準備',5);}
+  if(next==='blueSky'){skyAge=0;skyShipStart={x:150,y:150+Math.min(entryAge*1.2,H*.5-150)};api.beginReliefMusic?.();fuelClock=1.5;api.clearPickups?.();say('推進用素材を回収 — 着艦時の落下を緩和',5);}
+  if(next==='finish'){earthCue={};finishFade=0;api.storyVoice?.('stage5EarthDescent');}
+  if(next==='landing'){landingShipStart=H*.82+35;fuelDrops=[];const p=api.player();landingY=p.y;landingDeckY=Math.min(H-12,Math.max(H*.82,p.y+12));api.stopTarget(p);say('左右操作のみ — 後部の青い着艦エリアを狙え',5);}
  }
  function spawnWave(){
   const y=145+Math.random()*(H-310);
@@ -92,15 +99,15 @@ root.createStageFive=function(api){
   hazards=hazards.filter(h=>h.age<4.9);
  }
  function updateRocks(dt){
-  const intensity=phase==='descent'?Math.min(8,Math.floor(entryAge/10))/8:0;
+  const intensity=['descent','cooling'].includes(phase)?Math.min(8,Math.floor(entryAge/10))/8:0;
   gritClock-=dt;rockClock-=dt;
   if(gritClock<=0){
    const x=W+35,y=85+Math.random()*(H-170),p=api.player();
    const angle=Math.atan2(p.y-y,p.x-x),speed=270+Math.random()*85+intensity*100;
    rocks.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:7,small:true,variant:Math.floor(Math.random()*6)});
-   gritClock=phase==='descent'?.65-intensity*.35:.85;
+   gritClock=['descent','cooling'].includes(phase)?.65-intensity*.35:.85;
   }
-  if(phase==='descent'&&rockClock<=0){
+  if(['descent','cooling'].includes(phase)&&rockClock<=0){
    const fromBottom=Math.random()<.4;
    const x=fromBottom?120+Math.random()*(W-180):W+65;
    const y=fromBottom?H+65:70+Math.random()*(H-140);
@@ -121,14 +128,16 @@ root.createStageFive=function(api){
  }
  function update(t,dt){
   if(completed||api.player().dying>0)return;
-  age+=dt;total+=dt;
+  age+=dt;total+=dt;if(['blueSky','landing','finish'].includes(phase))skyAge+=dt;
   if(heated()&&ace&&api.storyVoice){
-   const cues={bright:'stage5BrightReturn',char:'stage5CharRecovery',amuro:'stage5TellAmuro',crown:'stage5CrownFinal'};
+   if(ace.storyStep==='charGap'){ace.dialogueGap-=dt;if(ace.dialogueGap<=0){ace.storyStep='char';api.storyVoice('stage5CharRecovery');}}
+   const cues={bright:'stage5BrightReturn',char:'stage5CharRecovery',amuro:'stage5TellAmuro',crown:'stage5CrownFinal',scream:'stage5CrownScream'};
    const name=cues[ace.storyStep];
    if(name&&api.storyFinished(ace.recovery,name,dt)){
-    if(ace.storyStep==='bright'){ace.storyStep='char';api.storyVoice('stage5CharRecovery');}
+    if(ace.storyStep==='bright'){ace.storyStep='charGap';ace.dialogueGap=2;}
     else if(ace.storyStep==='char'){ace.storyStep='boarding';ace.recoveryDone=true;}
     else if(ace.storyStep==='amuro'){ace.storyStep='crown';api.storyVoice('stage5CrownFinal');}
+    else if(ace.storyStep==='crown'){ace.storyStep='scream';api.storyVoice('stage5CrownScream');lastZaku.hp=0;if(!lastZaku.paid){lastZaku.paid=true;api.score(1600);}enter('burnup');}
     else ace.storyStep='done';
    }
    if(ace.storyStep==='boarding'&&ace.recovered){ace.storyStep='amuro';api.storyVoice('stage5TellAmuro');}
@@ -139,7 +148,7 @@ root.createStageFive=function(api){
   }
   budget=Math.min(4,budget+7*dt);updateProjectiles(dt);
   if(heated())entryAge+=dt;
-  if(['lastZaku','burnup','descent'].includes(phase))updateRocks(dt);
+  if(['lastZaku','burnup','descent','cooling'].includes(phase))updateRocks(dt);
   if(phase==='escort'){
    if(age<26){pod.x=Math.max(340,pod.x-100*dt);pod.y=H*.56+Math.sin(total*.8)*22;}
    waveClock-=dt;missileClock-=dt;
@@ -159,18 +168,41 @@ root.createStageFive=function(api){
   }else if(phase==='char'){if(!ace)enter('char');}
   else if(phase==='retreat'){ace.x+=430*dt;ace.y-=65*dt;if(ace.x>W+110)enter('lastZaku');}
   else if(phase==='lastZaku'){if(entryAge>=20&&(!api.storyVoice||ace?.storyStep==='done')){if(!lastZaku.paid){lastZaku.paid=true;api.score(1600);}lastZaku.hp=0;enter('burnup');}}
-  else if(phase==='burnup'){if(age>=4.5)enter('descent');}
+  else if(phase==='burnup'){if(api.storyVoice){const position=api.storyPosition?.(ace.recovery,'stage5CrownScream')||0;if(position>=2.2&&!lastZaku.burstShown){lastZaku.burstShown=true;api.explode(lastZaku.x,lastZaku.y,'#ffb56b',80,'silent');}if(ace.storyStep==='done')enter('descent');}else if(age>=4.5)enter('descent');}
   else if(phase==='descent'){
-   if(entryAge-dt<COOLING_START&&entryAge>=COOLING_START)say('冷却膜作動 — 隕石回避を継続',4);
-   if(entryAge>=DESCENT_SECONDS)enter('cooling');
+   if(!coolingCue.started&&age>=COOLING_START){coolingCue.started=true;api.storyVoice?.('stage5AmuroCooling');say('耐熱フィルム準備 — 隕石回避を継続',4);}
+   if(coolingCue.started&&!coolingCue.done)coolingCue.done=api.storyFinished?api.storyFinished(coolingCue,'stage5AmuroCooling',dt):age>=COOLING_START+28;
+   if(coolingProgress()>=1&&coolingCue.done)enter('cooling');
   }
-  else if(phase==='cooling'){if(age>=COOLING_SECONDS)enter('landing');}
+  else if(phase==='cooling'){
+   if(!coolingCue.afterCharDone)coolingCue.afterCharDone=api.storyFinished?api.storyFinished(coolingCue.afterChar,'stage5CharAfterCooling',dt):true;
+   if(coolingCue.afterCharDone&&!coolingCue.countdown){coolingCue.countdown={};api.storyVoice?.('stage5MiraiCountdown');say('大気圏突破 — 姿勢を維持',4);}
+   if(coolingCue.countdown&&!coolingCue.countdownDone)coolingCue.countdownDone=api.storyFinished?api.storyFinished(coolingCue.countdown,'stage5MiraiCountdown',dt):true;
+   if(age>=COOLING_SECONDS&&coolingCue.countdownDone)enter('blueSky');
+  }
+  else if(phase==='blueSky'){
+   fuelClock-=dt;
+   if(fuelClock<=0){fuelDrops.push({x:W+25,y:clamp(api.player().y+(Math.random()-.5)*300,85,H-70),age:0});fuelClock=3.5+Math.random()*1.5;}
+   for(const item of fuelDrops){item.age+=dt;item.x-=150*dt;item.y+=Math.sin(item.age*2)*8*dt;
+    if(Math.hypot(item.x-api.player().x,item.y-api.player().y)<30){item.taken=true;landingFuel++;api.fuelPickup?.();say('推進用素材 +1 — 落下速度 '+Math.round(100/(1+landingFuel*.12))+'%',2);}
+   }
+   fuelDrops=fuelDrops.filter(item=>!item.taken&&item.x>-30);
+
+   if(age>=1&&!coolingCue.skyVoice){coolingCue.skyVoice={};api.storyVoice?.('stage5AfterReentry');}
+   if(coolingCue.skyVoice&&(api.storyFinished?api.storyFinished(coolingCue.skyVoice,'stage5AfterReentry',dt):true))enter('landing');
+  }
   else if(phase==='landing'){
-   const p=api.player();p.x=clamp(p.x+85*dt,40,W-45);p.y+=155*dt;
-   const target=landingTarget();
-   if(Math.abs(p.x-target.x)<target.w/2&&Math.abs(p.y-target.y)<target.h/2){enter('finish');return;}
-   if(p.y>H-42){p.x=W*.23;p.y=105;api.stopTarget(p);say('着艦を再試行 — 右の誘導灯へ',3);}
-  }else if(phase==='finish'&&age>=6){completed=true;api.score(3000);api.complete();}
+   const p=api.player(),target=landingTarget(),previous=landingY;
+   if(age>.65)landingY+=(220+(age-.65)*100)*dt/(1+landingFuel*.12);p.y=landingY;
+   if(previous<=target.y&&landingY>=target.y){
+    if(Math.abs(p.x-target.x)<=target.w/2){p.y=target.y;enter('finish');return;}
+    completed=true;api.fail?.('着艦位置を外しました。');return;
+   }
+   }else if(phase==='finish'){
+   if(!earthCue.done)earthCue.done=api.storyFinished?api.storyFinished(earthCue,'stage5EarthDescent',dt):age>=21.45;
+   if(earthCue.done)finishFade+=dt;
+   if(finishFade>=4){completed=true;api.score(3000);api.complete();}
+  }
  }
  function updateEnemy(e,dt){
   if(!e.stage5Kind)return false;
@@ -254,9 +286,14 @@ root.createStageFive=function(api){
  }
  function label(text,x,y,size=18,color='#edf6ff'){ctx.save();ctx.fillStyle=color;ctx.font=size+'px sans-serif';ctx.textAlign='center';ctx.fillText(text,x,y);ctx.restore();}
  function heated(){return ['lastZaku','burnup','descent','cooling'].includes(phase);}
+ function coolingClock(){
+  if(phase!=='descent'||!coolingCue.started)return 0;
+  const position=api.storyPosition?api.storyPosition(coolingCue,'stage5AmuroCooling'):Math.max(0,age-COOLING_START);
+  return Math.max(0,position-COOLING_VOICE_CUE);
+ }
  function coolingProgress(){
   if(phase==='cooling')return 1;
-  return phase==='descent'?clamp((entryAge-COOLING_START)/COOLING_TRANSITION,0,1):0;
+  return phase==='descent'?clamp(coolingClock()/COOLING_TRANSITION,0,1):0;
  }
  function drawRegisteredSuit(name,index,x,y,height,angle,alpha){
   const a=images['stage5_'+name];if(!a)return;
@@ -268,7 +305,8 @@ root.createStageFive=function(api){
  }
  function entryBlend(){const t=clamp(entryAge/10,0,1);return t*t*(3-2*t);}
  function entryMotion(){
-  const strength=heated()?entryBlend()*(phase==='descent'?1:.55):0;
+  const countdown=phase==='cooling'&&coolingCue.countdown&&!coolingCue.countdownDone;
+  const strength=heated()?entryBlend()*(countdown?4:phase==='descent'?1:.55):0;
   return {x:(Math.sin(total*63)+Math.sin(total*97)*.35)*1.8*strength,
    y:(Math.sin(total*79)+Math.sin(total*111)*.3)*2.2*strength};
  }
@@ -277,29 +315,34 @@ root.createStageFive=function(api){
  }
  function applyGravity(dt){
   const p=api.player();
+  if(phase==='landing'){p.y=landingY;return;}
   if(p.dying>0)return;
   p.y=clamp(p.y+gravitySpeed()*dt,35,H-35);
-  if(gravitySpeed()>0&&p.y+api.hitRadius()>=H-72)api.hit(18,1);
+  const bodyHalfHeight=images.zaku?65*images.zaku.sh/images.zaku.sw/2:25;
+  if(gravitySpeed()>0&&p.y+Math.max(api.hitRadius(),bodyHalfHeight)>=H-HOT_ZONE_HEIGHT)api.hit(18,1);
  }
- function heatStrength(){return heated()?entryBlend()*(.12+.34*clamp((entryAge-18)/25,0,1))*(phase==='cooling'?1-clamp(age/COOLING_SECONDS,0,1):1):0;}
+ function heatStrength(){return heated()?entryBlend()*(.12+.34*clamp((entryAge-18)/25,0,1)):0;}
  function drawBackdrop(){
-  const sky=['landing','finish'].includes(phase);
+  const sky=['blueSky','landing','finish'].includes(phase);
   const blend=heated()?entryBlend()*(phase==='cooling'?1-clamp(age/COOLING_SECONDS,0,1):1):0;
   const bottom='rgb('+Math.round(22+84*blend)+','+Math.round(71-19*blend)+','+Math.round(93-48*blend)+')';
   ctx.save();const gradient=ctx.createLinearGradient(0,0,0,H);gradient.addColorStop(0,sky?'#487eaf':'#020817');gradient.addColorStop(1,sky?'#c3dced':bottom);
   ctx.fillStyle=gradient;ctx.fillRect(0,0,W,H);
+  if(sky){const t=clamp(skyAge/40,0,1),drift=t*t*(3-2*t);atlas('moon',0,W+70-(W*.22+70)*drift,H*.23,95,0,.48); }
   if(!sky){ctx.fillStyle='#32668b';ctx.beginPath();ctx.ellipse(W*.5,H+380,W*.9,460,0,Math.PI,Math.PI*2);ctx.fill();ctx.strokeStyle='#6ea8ca';ctx.lineWidth=8;ctx.stroke();}
   if(phase==='escort'||phase==='waves')sprite('whiteBase',90,190,350,.72);
   if(['waves','char'].includes(phase))sprite('charMusaiBackground',W-180,130,270,.55);
   if(heated()){
-   const approach=clamp(entryAge/3,0,1),arrival=approach*approach*(3-2*approach);
+   const approach=clamp(entryAge/9,0,1),arrival=approach*approach*(3-2*approach);
    const x=W+180-(W*.18+180)*arrival,y=H*.76+Math.sin(total*.65)*4;
    const opacity=phase==='cooling'?1-clamp(age/COOLING_SECONDS,0,1):1;
    atlas('komusai',0,x,y,210,.12,.85*opacity);
   }
   if(heated()){
-   sprite('whiteBase',150,150,350,.7*(1-blend));
-   atlas('entryWhiteBase',Math.floor(total*8)%4,150,150,350,.15*blend,.7*blend);
+   const arrival=clamp(entryAge/9,0,1),shipX=-220+370*(arrival*arrival*(3-2*arrival));
+   const shipY=150+Math.min(entryAge*1.2,H*.5-150);
+   sprite('whiteBase',shipX,shipY,350,.7*(1-blend));
+   atlas('entryWhiteBase',Math.floor(total*8)%4,shipX,shipY,350,.15*blend,.7*blend);
   }
   for(let i=0;i<14;i++){
    const speed=sky?70:14+blend*(phase==='descent'?790:420);
@@ -321,14 +364,16 @@ root.createStageFive=function(api){
    ctx.globalAlpha=1;
   }
   if(phase==='escort'&&!pod.failed){sprite('magellanEvacuationBoat',pod.x,pod.y,68);ctx.fillStyle='#18303d';ctx.fillRect(pod.x-30,pod.y-38,60,5);ctx.fillStyle='#7bf3b7';ctx.fillRect(pod.x-30,pod.y-38,60*pod.hp/pod.max,5);}
-  if(heated()&&ace&&!ace.recovered)atlas('bazookaChar',9,ace.x,ace.y,110*(1-ace.boarding),0,1-ace.boarding);
-  if(phase==='retreat'&&ace)atlas('bazookaChar',9,ace.x,ace.y,110);
-  if(phase==='burnup'&&lastZaku)atlas('burningZaku',Math.min(11,Math.floor(age/4.5*12)),lastZaku.x+Math.sin(age*80)*3,lastZaku.y,130,.2);
-  if(phase==='landing'){
-   atlas('landingDeck',0,W*.78,H*.68,510);const t=landingTarget();
-   ctx.strokeStyle='#9cffb1';ctx.lineWidth=3;ctx.strokeRect(t.x-t.w/2,t.y-t.h/2,t.w,t.h);label('着艦',t.x,t.y-t.h/2-12,16,'#a8ffc0');
+  if(heated()&&ace&&!ace.recovered)atlas('bazookaChar',9,ace.x,ace.y,78*(1-ace.boarding),0,1-ace.boarding);
+  if(phase==='retreat'&&ace)atlas('bazookaChar',9,ace.x,ace.y,78);
+  if(phase==='burnup'&&lastZaku)atlas('burningZaku',Math.min(11,Math.floor((api.storyVoice?(api.storyPosition?.(ace.recovery,'stage5CrownScream')||0)/4.85:age/4.5)*12)),lastZaku.x+Math.sin(age*80)*3,lastZaku.y,130,.2);
+  if(['blueSky','landing','finish'].includes(phase)){
+   if(phase==='finish'){const rise=clamp(age/12,0,1);atlas('earth',0,W/2,H+H*.48-rise*H*.55,W*1.12);}
+   const ship=landingShipPose();sprite('whiteBase',ship.x,ship.y,ship.w);
+   if(phase==='landing'){const t=landingTarget();ctx.save();ctx.globalAlpha=.45+.4*Math.sin(total*9)**2;ctx.fillStyle='#268fff88';ctx.shadowColor='#50cfff';ctx.shadowBlur=14;ctx.fillRect(t.x-t.w/2,t.y-t.h/2,t.w,t.h);ctx.strokeStyle='#82ddff';ctx.lineWidth=2;ctx.strokeRect(t.x-t.w/2,t.y-t.h/2,t.w,t.h);ctx.restore();label('着艦',t.x,t.y-22,16,'#8bdfff');}
   }
-  if(phase==='finish')sprite('whiteBase',W*.58+age*22,H*.4+age*35,400-age*25);
+  if(phase==='blueSky')for(const item of fuelDrops){ctx.save();ctx.translate(item.x,item.y);ctx.fillStyle='#7af0a0';ctx.shadowColor='#91ffd8';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(11,0);ctx.lineTo(0,11);ctx.lineTo(-11,0);ctx.closePath();ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#12302a';ctx.font='bold 12px monospace';ctx.textAlign='center';ctx.fillText('P',0,4);ctx.restore();}
+
   for(const r of rocks){
    if(r.small){
     ctx.save();ctx.translate(r.x,r.y);ctx.rotate(Math.atan2(r.vy,r.vx)-Math.PI);
@@ -354,7 +399,7 @@ root.createStageFive=function(api){
    ctx.restore();
    const dy=api.player().y-e.y,frame=Math.abs(dy)<60?(e.flash>0?1:0):dy<0?(e.flash>0?5:4):(e.flash>0?7:6);
    ctx.save();ctx.translate(e.x,e.y);if(api.player().x>e.x)ctx.scale(-1,1);
-   atlas('bazookaChar',frame,0,0,110);ctx.restore();
+   atlas('bazookaChar',frame,0,0,78);ctx.restore();
   }else if(e.stage5Kind==='lastZaku'){
    sprite('zaku',e.x,e.y,65,1-entryBlend());
    atlas('entryZaku',Math.floor(total*8)%4,e.x,e.y,125,0,entryBlend());
@@ -363,17 +408,24 @@ root.createStageFive=function(api){
   return true;
  }
  function drawPlayer(alpha){
-  if(phase==='finish')return true;
+  if(phase==='finish'){const fade=clamp(age/1.2,0,1),ship=landingShipPose(),height=images.zaku?65*images.zaku.sh/images.zaku.sw:50;if(fade<1)drawRegisteredSuit('landingSuit',3,ship.x-130*ship.w/540,ship.y-35*ship.w/540,height*(1-fade),0,alpha*(1-fade));return true;}
+  if(phase==='blueSky'){const z=images.zaku,height=z?65*z.sh/z.sw:50;drawRegisteredSuit('landingSuit',3,api.player().x,api.player().y,height,0,alpha);return true;}
+  if(phase==='landing'){const z=images.zaku,height=z?65*z.sh/z.sw:50;drawRegisteredSuit('landingSuit',Math.min(3,Math.floor(age/.22)),api.player().x,api.player().y,height,0,alpha);return true;}
   if(!heated())return false;
   const p=api.player(),blend=entryBlend(),normal=api.playerSuit?.()||'gundamUnarmed',a=images[normal],z=images.zaku;
   const height=z?65*z.sh/z.sw:50,angle=['descent','cooling'].includes(phase)?.28:0;
-  const progress=coolingProgress(),coolAlpha=phase==='cooling'?1:phase==='descent'?clamp((entryAge-COOLING_START)/1.5,0,1):0;
+  const progress=coolingProgress(),coolAlpha=phase==='cooling'?1:phase==='descent'?clamp(coolingClock()/1.5,0,1):0;
   if(a&&z)sprite(normal,p.x,p.y,65*z.sh/z.sw*a.sw/a.sh,alpha*(1-blend));
   drawRegisteredSuit('entryGundam',Math.floor(total*8)%4,p.x,p.y,height,angle,alpha*blend*(1-coolAlpha));
   if(coolAlpha>0)drawRegisteredSuit('coolingNew',Math.min(11,Math.floor(progress*12)),p.x,p.y,height,angle,alpha*coolAlpha);
   return true;
  }
- function landingTarget(){return {x:W*.80,y:H*.82,w:150,h:70};}
+ function landingShipPose(){
+  if(phase==='blueSky'){const t=clamp(age/12,0,1),k=t*t*(3-2*t);return {x:skyShipStart.x+(W*.68-skyShipStart.x)*k,y:skyShipStart.y+(H*.82+35-skyShipStart.y)*k,w:350+190*k};}
+  if(phase==='finish'){const t=clamp(age/4,0,1),k=t*t*(3-2*t),drift=Math.max(0,(age-4)/17.45);return {x:W*.68+(W*.58-W*.68)*k+W*.07*drift,y:landingDeckY+35+(H*.4-landingDeckY-35)*k+H*.25*drift,w:Math.max(120,540-140*k-150*drift)};}
+  const t=clamp(age/.65,0,1),k=t*t*(3-2*t);return {x:W*.68,y:landingShipStart+(landingDeckY+35-landingShipStart)*k,w:540};
+ }
+ function landingTarget(){return {x:W*.68-130,y:landingDeckY,w:56,h:22};}
  function drawOverlay(){
   ctx.save();const heat=heatStrength();
   if(heat){
@@ -381,11 +433,9 @@ root.createStageFive=function(api){
    ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
   }
   if(gravitySpeed()>0){
-   const hot=ctx.createLinearGradient(0,H-125,0,H);
+   const hot=ctx.createLinearGradient(0,H-HOT_ZONE_HEIGHT,0,H);
    hot.addColorStop(0,'rgba(255,45,15,0)');hot.addColorStop(.45,'rgba(245,42,16,.40)');hot.addColorStop(1,'rgba(255,60,12,.85)');
-   ctx.fillStyle=hot;ctx.fillRect(0,H-125,W,125);
-   ctx.strokeStyle='#ff8351';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,H-72);ctx.lineTo(W,H-72);ctx.stroke();
-   label('高熱域',W-75,H-83,15,'#ffc28e');
+   ctx.fillStyle=hot;ctx.fillRect(0,H-HOT_ZONE_HEIGHT,W,HOT_ZONE_HEIGHT);
   }
   label('第5話 大気圏突入 / '+names[phase],W/2,42,20);
   const target=phase==='char'?ace:phase==='lastZaku'?lastZaku:null;
@@ -394,16 +444,17 @@ root.createStageFive=function(api){
    ctx.fillStyle='#ffa68b';ctx.fillRect(W*.3,61,W*.4*target.hp/target.max,8);
    label('HP '+Math.ceil(target.hp)+' / '+target.max,W/2,87,14);
   }
-  if(phase==='descent')label('着艦準備まで '+Math.ceil(DESCENT_SECONDS-entryAge),W/2,76,20,'#ffdca3');
+  if(['blueSky','landing'].includes(phase))label('推進用素材 '+landingFuel+'  /  落下速度 '+Math.round(100/(1+landingFuel*.12))+'%',W/2,76,18,'#a8ffc0');
+  if(phase==='descent')label('着艦準備まで '+Math.max(0,Math.ceil(DESCENT_SECONDS-age)),W/2,76,20,'#ffdca3');
   if(noticeUntil>total)label(notice,W/2,H-90,18,'#ffdfa5');
 
-  if(phase==='finish'){ctx.fillStyle='rgba(0,0,0,'+clamp((age-3)/3,0,1)+')';ctx.fillRect(0,0,W,H);}ctx.restore();
+  if(phase==='finish'){ctx.fillStyle='rgba(0,0,0,'+clamp(finishFade/4,0,1)+')';ctx.fillRect(0,0,W,H);}ctx.restore();
  }
  reset();
- return {reset,update,updateEnemy,filterDamage,onKilled,intercept,drawBackdrop,drawEnemy,drawPlayer,drawOverlay,entryMotion,applyGravity,
+ return {get horizontalOnly(){return phase==='landing';},reset,update,updateEnemy,filterDamage,onKilled,intercept,drawBackdrop,drawEnemy,drawPlayer,drawOverlay,entryMotion,applyGravity,
   get playerHidden(){return phase==='finish';},
-  get weaponBlocked(){return ['retreat','burnup','descent','cooling','landing','finish'].includes(phase);},
+  get weaponBlocked(){return ['retreat','burnup','descent','cooling','blueSky','landing','finish'].includes(phase);},
   get zone(){return names[phase];},
-  snapshot:()=>({phase,age,total,descentSeconds:DESCENT_SECONDS,coolingSeconds:COOLING_SECONDS,coolingProgress:coolingProgress(),pod:{...pod},hazards:hazards.map(h=>({...h})),projectiles:projectiles.length,rockCount:rocks.length,rocks:rocks.map(r=>({...r})),gravity:gravitySpeed(),entryBlend:entryBlend(),heat:heatStrength(),landing:phase==='landing'?landingTarget():null,completed})};
+  snapshot:()=>({phase,age,total,finishFade,ship:phase==='finish'?landingShipPose():null,skyAge,landingFuel,landingSpeedFactor:1/(1+landingFuel*.12),fuelDrops:fuelDrops.map(item=>({...item})),descentSeconds:DESCENT_SECONDS,coolingSeconds:COOLING_SECONDS,coolingProgress:coolingProgress(),pod:{...pod},hazards:hazards.map(h=>({...h})),projectiles:projectiles.length,rockCount:rocks.length,rocks:rocks.map(r=>({...r})),gravity:gravitySpeed(),entryBlend:entryBlend(),heat:heatStrength(),landing:phase==='landing'?landingTarget():null,completed})};
 };
 })(window);
