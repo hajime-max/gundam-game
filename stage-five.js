@@ -103,9 +103,9 @@ root.createStageFive=function(api){
   hazards=hazards.filter(h=>h.age<4.9);
  }
  function updateRocks(dt){
-  const intensity=['descent','cooling'].includes(phase)?Math.min(8,Math.floor(entryAge/10))/8:0;
+  const intensity=['descent','cooling','breakthrough'].includes(phase)?Math.min(8,Math.floor(entryAge/10))/8:0;
   gritClock-=dt;rockClock-=dt;
-  if(gritClock<=0&&(phase!=='breakthrough'||age<5)){
+  if(gritClock<=0&&(phase!=='breakthrough'||age<7)){
    const x=W+35,y=85+Math.random()*(H-170),p=api.player();
    const angle=Math.atan2(p.y-y,p.x-x),speed=270+Math.random()*85+intensity*100;
    rocks.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:7,small:true,variant:Math.floor(Math.random()*6)});
@@ -293,7 +293,7 @@ root.createStageFive=function(api){
   ctx.drawImage(a.im,sx,sy,sw,sh,-width/2,-width*sh/sw/2,width,width*sh/sw);ctx.restore();
  }
  function label(text,x,y,size=18,color='#edf6ff'){ctx.save();ctx.fillStyle=color;ctx.font=size+'px sans-serif';ctx.textAlign='center';ctx.fillText(text,x,y);ctx.restore();}
- function heated(){return ['lastZaku','burnup','descent','cooling'].includes(phase);}
+ function heated(){return ['lastZaku','burnup','descent','cooling','breakthrough'].includes(phase);}
  function coolingClock(){
   if(phase!=='descent'||!coolingCue.started)return 0;
   const position=api.storyPosition?api.storyPosition(coolingCue,'stage5AmuroCooling'):Math.max(0,age-COOLING_START);
@@ -319,15 +319,17 @@ root.createStageFive=function(api){
    y:(Math.sin(total*79)+Math.sin(total*111)*.3)*2.2*strength};
  }
  function gravitySpeed(){
-  return {escort:78,waves:90,char:100,retreat:95,lastZaku:105,burnup:105,descent:110,cooling:0}[phase]||0;
+  if(['breakthrough','blueSky'].includes(phase))return 110;
+  return {escort:78,waves:90,char:100,retreat:95,lastZaku:105,burnup:105,descent:110,cooling:110}[phase]||0;
  }
+ function hotZoneStrength(){if(phase==='breakthrough')return 1-clamp(age/10,0,1);return gravitySpeed()>0&&phase!=='blueSky'?1:0;}
  function applyGravity(dt){
   const p=api.player();
   if(phase==='landing'){p.y=landingY;return;}
   if(p.dying>0)return;
   p.y=clamp(p.y+gravitySpeed()*dt,35,H-35);
   const bodyHalfHeight=images.zaku?65*images.zaku.sh/images.zaku.sw/2:25;
-  if(gravitySpeed()>0&&p.y+Math.max(api.hitRadius(),bodyHalfHeight)>=H-HOT_ZONE_HEIGHT)api.hit(18,1);
+  if(hotZoneStrength()>0&&p.y+Math.max(api.hitRadius(),bodyHalfHeight)>=H-HOT_ZONE_HEIGHT)api.hit(18,1);
  }
  function heatStrength(){const t=phase==='breakthrough'?clamp(age/10,0,1):0,clear=t*t*(3-2*t);return heated()?entryBlend()*(.12+.34*clamp((entryAge-18)/25,0,1))*(1-clear):0;}
  function drawBackdrop(){
@@ -338,7 +340,7 @@ root.createStageFive=function(api){
   ctx.save();const gradient=ctx.createLinearGradient(0,0,0,H);gradient.addColorStop(0,sky?'#487eaf':'#020817');gradient.addColorStop(1,sky?'#c3dced':bottom);
   ctx.fillStyle=gradient;ctx.fillRect(0,0,W,H);
   if(phase==='breakthrough'){ctx.save();ctx.globalAlpha=clamp(age/10,0,1)*.55;ctx.fillStyle='#d6e6ff';for(let i=0;i<38;i++)ctx.fillRect((i*137+63)%W,(i*79+45)%H,1.5,1.5);ctx.restore();}
-  if(phase==='breakthrough'){const reveal=clamp((age-12)/12,0,1);if(reveal>0){const blue=ctx.createLinearGradient(0,0,0,H),edge=1-reveal;blue.addColorStop(0,reveal===1?'#487eaf':'rgba(72,126,175,0)');blue.addColorStop(Math.max(0,edge-.06),'rgba(72,126,175,0)');blue.addColorStop(Math.min(1,edge+.08),'#78a4c8');blue.addColorStop(1,'#c3dced');ctx.fillStyle=blue;ctx.fillRect(0,0,W,H);}}
+  if(phase==='breakthrough'){const reveal=clamp((age-12)/12,0,1);if(reveal>0){const blue=ctx.createLinearGradient(0,0,0,H),edge=1-reveal;if(reveal>=.999){blue.addColorStop(0,'#487eaf');blue.addColorStop(1,'#c3dced');}else{blue.addColorStop(0,'rgba(72,126,175,0)');blue.addColorStop(Math.max(0,edge-.06),'rgba(72,126,175,0)');blue.addColorStop(Math.min(1,edge+.08),'#78a4c8');blue.addColorStop(1,'#c3dced');}ctx.fillStyle=blue;ctx.fillRect(0,0,W,H);}}
   if(sky){const t=clamp(skyAge/40,0,1),drift=t*t*(3-2*t);atlas('moon',0,W+70-(W*.22+70)*drift,H*.23,95,0,.48); }
   if(!sky&&phase!=='breakthrough'){ctx.fillStyle='#32668b';ctx.beginPath();ctx.ellipse(W*.5,H+380,W*.9,460,0,Math.PI,Math.PI*2);ctx.fill();ctx.strokeStyle='#6ea8ca';ctx.lineWidth=8;ctx.stroke();}
   if(phase==='escort'||phase==='waves')sprite('whiteBase',90,190,350,.72);
@@ -346,7 +348,7 @@ root.createStageFive=function(api){
   if(heated()){
    const approach=clamp(entryAge/9,0,1),arrival=approach*approach*(3-2*approach);
    const x=W+180-(W*.18+180)*arrival,y=H*.76+Math.sin(total*.65)*4;
-   const opacity=phase==='cooling'?1-clamp(age/COOLING_SECONDS,0,1):1;
+   const opacity=phase==='breakthrough'?1-clamp(age/10,0,1):1;
    atlas('komusai',0,x,y,210,.12,.85*opacity);
   }
   if(heated()){
@@ -363,7 +365,7 @@ root.createStageFive=function(api){
    const x=((i*151-total*speed)%(W+360)+W+360)%(W+360)-180;
    const y=((i*83-total*speed*.28)%(H+160)+H+160)%(H+160)-80;
    ctx.fillStyle=sky?'#ffffff35':heated()?'#441d2480':'#8aa4b566';
-   if(heated()||sky){ctx.globalAlpha=sky?1:blend;ctx.beginPath();ctx.ellipse(x,y,150,12,.27,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+   if(heated()||sky){ctx.globalAlpha=sky?1:blend*(phase==='breakthrough'?1-clamp(age/10,0,1):1);ctx.beginPath();ctx.ellipse(x,y,150,12,.27,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
    else ctx.fillRect(x,100+(i*71)%(H-150),2,2);
   }
   if(heated()){
@@ -372,7 +374,7 @@ root.createStageFive=function(api){
     const speed=650+(i%5)*145;
     const x=((i*131-total*speed)%(W+260)+W+260)%(W+260)-130;
     const y=((i*67-total*speed*.28)%(H+180)+H+180)%(H+180)-90;
-    ctx.globalAlpha=blend*(.07+(i%4)*.025);
+    ctx.globalAlpha=blend*(.07+(i%4)*.025)*(phase==='breakthrough'?1-clamp(age/10,0,1):1);
     ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+55+(i%4)*15,y+18);ctx.stroke();
    }
    ctx.globalAlpha=1;
@@ -447,10 +449,11 @@ root.createStageFive=function(api){
    const glow=ctx.createLinearGradient(0,0,W,H);glow.addColorStop(0,'rgba(115,42,30,'+heat*.7+')');glow.addColorStop(.6,'rgba(204,72,40,'+heat+')');glow.addColorStop(1,'rgba(235,105,46,'+heat+')');
    ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
   }
-  if(gravitySpeed()>0){
+  if(hotZoneStrength()>0){
+   ctx.save();ctx.globalAlpha=hotZoneStrength();
    const hot=ctx.createLinearGradient(0,H-HOT_ZONE_HEIGHT,0,H);
    hot.addColorStop(0,'rgba(255,45,15,0)');hot.addColorStop(.45,'rgba(245,42,16,.40)');hot.addColorStop(1,'rgba(255,60,12,.85)');
-   ctx.fillStyle=hot;ctx.fillRect(0,H-HOT_ZONE_HEIGHT,W,HOT_ZONE_HEIGHT);
+   ctx.fillStyle=hot;ctx.fillRect(0,H-HOT_ZONE_HEIGHT,W,HOT_ZONE_HEIGHT);ctx.restore();
   }
   label('第5話 大気圏突入 / '+names[phase],W/2,42,20);
   const target=phase==='char'?ace:phase==='lastZaku'?lastZaku:null;
@@ -470,6 +473,6 @@ root.createStageFive=function(api){
   get playerHidden(){return phase==='finish';},
   get weaponBlocked(){return ['retreat','burnup','descent','cooling','breakthrough','blueSky','landing','finish'].includes(phase);},
   get zone(){return names[phase];},
-  snapshot:()=>({phase,age,total,shipCoolingTime,finishFade,ship:phase==='finish'?landingShipPose():null,skyAge,landingFuel,landingSpeedFactor:1/(1+landingFuel*.12),fuelDrops:fuelDrops.map(item=>({...item})),descentSeconds:DESCENT_SECONDS,coolingSeconds:COOLING_SECONDS,coolingProgress:coolingProgress(),pod:{...pod},hazards:hazards.map(h=>({...h})),projectiles:projectiles.length,rockCount:rocks.length,rocks:rocks.map(r=>({...r})),gravity:gravitySpeed(),entryBlend:entryBlend(),heat:heatStrength(),landing:phase==='landing'?landingTarget():null,completed})};
+  snapshot:()=>({phase,age,total,atmospheric:heated(),shipCoolingTime,finishFade,ship:phase==='finish'?landingShipPose():null,skyAge,landingFuel,landingSpeedFactor:1/(1+landingFuel*.12),fuelDrops:fuelDrops.map(item=>({...item})),descentSeconds:DESCENT_SECONDS,coolingSeconds:COOLING_SECONDS,coolingProgress:coolingProgress(),pod:{...pod},hazards:hazards.map(h=>({...h})),projectiles:projectiles.length,rockCount:rocks.length,rocks:rocks.map(r=>({...r})),gravity:gravitySpeed(),entryBlend:entryBlend(),heat:heatStrength(),landing:phase==='landing'?landingTarget():null,completed})};
 };
 })(window);
