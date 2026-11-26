@@ -147,10 +147,10 @@ const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.max(a,Math.min(b,x))
 const stars=Array.from({length:160},()=>({x:rand(0,W),y:rand(0,H),r:rand(.6,1.9),depth:rand(.1,.65)}));
 function tone(freq,duration=.08,type='square',volume=.025){if(muted||voiceRemaining>0)return;if(voiceRemaining>0)volume*=.08;try{audio??=window.GameSound?.context()||new(window.AudioContext||window.webkitAudioContext)();audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(35,freq*.4),audio.currentTime+duration);g.gain.setValueAtTime(volume,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration)}catch{}}
 const bgm=document.getElementById('bgm');
-const stageBgm={ground:'game-assets/audio/gundam-kidou-m7.mp4?v=281',space:'game-assets/audio/nagai-nemuri.mp4?v=281'};
+const stageBgm={ground:'game-assets/audio/gundam-kidou-m7.mp4?v=284',space:'game-assets/audio/nagai-nemuri.mp4?v=284'};
 let resultBgmActive=false,stage3CharMusicActive=false,magellanBgmGain=1;
 const stage3CharPreludeVolume=.80;
-const stage3CharMusicSource='game-assets/audio/gundam-in-peril-v185.mp4?v=281';
+const stage3CharMusicSource='game-assets/audio/gundam-in-peril-v185.mp4?v=284';
 const bufferedStage3CharMusic=window.GameSound?.create(stage3CharMusicSource);
 let stage3CharMusic=bufferedStage3CharMusic||(window.Audio?new window.Audio(stage3CharMusicSource):null);
 if(stage3CharMusic){stage3CharMusic.preload='none';stage3CharMusic.loop=true;}
@@ -158,7 +158,7 @@ function currentBgm(){return stage3CharMusicActive?stage3CharMusic:bgm;}
 function beginStage3CharMusic(){if(!stage3CharMusic||stage3CharMusicActive)return;stopBgm();stage3CharMusicActive=true;bgmBlocked=false;rewindMedia(stage3CharMusic);stage3CharMusic.volume=stage3CharPreludeVolume;}
 function endStage3CharMusic(){if(!stage3CharMusicActive)return;stopBgm();stage3CharMusicActive=false;bgmBlocked=false;}
 
-const resultBgmTracks=['game-assets/audio/result-affection.mp4?v=281','game-assets/audio/result-relief.mp4?v=281'];
+const resultBgmTracks=['game-assets/audio/result-affection.mp4?v=284','game-assets/audio/result-relief.mp4?v=284'];
 function selectStageBgm(){endStage3CharMusic();resultBgmActive=false;const source=groundStage?stageBgm.ground:stageBgm.space;if(!(bgm.src||'').endsWith(source))bgm.src=source;}
 const scriptedVoiceDurations={stage5EarthDescent:21.45,stage5AfterReentry:47.8,stage5MiraiCountdown:17.4,stage5CharAfterCooling:17.7,stage5AmuroCooling:28,stage5CrownScream:4.85,stage5BrightReturn:3.54,stage5TellAmuro:31.9,stage5CrownFinal:27.95,stage5CharRecovery:11.5,stage4CharArrivalVoice:6.89,charStage3Voice:6.89,charStage3Retreat:12,charTauntAmai:.46,charTauntPilot:1.09,charTauntOsoi:.76,gademSupplyOrders:13.53,gademSupplyDelivered:1.68,gademChargeDialogue:18,charStopGadem:2.47,gademTooFar:1.67,gademDefeatDialogue:10,brightFallBack:5.37,charStage3Epilogue:28,magellanSortieVoice:9.85,magellanMainGunOrderVoice:12.78,magellanMainGunFireVoice:40.48,magellanDemolitionVoice:4.4,magellanWakkeinVoice:.87,magellanCharDialogueVoice:39,stage4BoardingVoice:5.73,stage4BoardingReplyVoice:7.62};
 const boardingVoices={order:'stage4BoardingVoice',reply:'stage4BoardingReplyVoice'};
@@ -167,7 +167,7 @@ const sfxFiles={stage5EarthDescent:'stage5-earth-descent',stage5AfterReentry:'st
 let lastRifleSound=-Infinity;
 let sfxUnlocked=false,voiceRemaining=0,voicePending=null,voiceEpoch=0,requestedVoiceMedia=null;
 function mixVoiceLevels(){for(const [name,pool] of Object.entries(sfxPool))for(const media of pool){if(media.volume===0)continue;const volume=name==='titleStart'?.9:name==='materialPickup'?.55:(name==='breachVoice'||name==='denimFuryVoice'||name==='geneJumpVoice'||name==='denimReactionVoice'||name==='geneDeathVoice'||name==='geneTauntVoice'||name==='geneRallyVoice'||name==='temVoice'||name==='denimVoice'||name==='geneVoice'||name==='charVoice'||scriptedVoiceDurations[name]||(name==='amuroVoice'||name==='amuroGroundVoice')||name.startsWith('equipVoice'))?1:name==='geneExplosion'?.8:name==='charRushImpact'?(voiceRemaining>0?.32:.5):voiceRemaining>0?(name==='charMove'?.05:.08):(name==='charMove'?.65:name==='scoreCounter'?.6:name==='vulcanShot'?.22:name==='rifleShot'?.28:name==='saberSwing'?.5:.9);if(media.volume!==volume)media.volume=volume;}}
-if(window.Audio)for(const [name,file] of Object.entries(sfxFiles))sfxPool[name]=Array.from({length:(scriptedVoiceDurations[name]||name==='geneVoice'||name==='denimVoice'||name==='temVoice'||name==='geneRallyVoice'||name==='geneTauntVoice'||name==='geneDeathVoice'||name==='denimReactionVoice'||name==='geneJumpVoice'||name==='breachVoice'||name==='denimFuryVoice'||name==='geneExplosion')?1:3},()=>{const src='game-assets/audio/'+file+(file.endsWith('.mp4')?'':'.wav')+'?v=281',spoken=name.endsWith('Voice')||name.startsWith('equipVoice')||scriptedVoiceDurations[name],media=(spoken?window.GameSound?.createVoice?.(src):null)||window.GameSound?.create(src)||new window.Audio(src);media.preload='none';return media;});
+if(window.Audio)for(const [name,file] of Object.entries(sfxFiles))sfxPool[name]=Array.from({length:(scriptedVoiceDurations[name]||name==='geneVoice'||name==='denimVoice'||name==='temVoice'||name==='geneRallyVoice'||name==='geneTauntVoice'||name==='geneDeathVoice'||name==='denimReactionVoice'||name==='geneJumpVoice'||name==='breachVoice'||name==='denimFuryVoice'||name==='geneExplosion')?1:3},()=>{const src='game-assets/audio/'+file+(file.endsWith('.mp4')?'':'.wav')+'?v=284',spoken=name.endsWith('Voice')||name.startsWith('equipVoice')||scriptedVoiceDurations[name],media=(spoken?window.GameSound?.createVoice?.(src):null)||window.GameSound?.create(src)||new window.Audio(src);media.preload='none';return media;});
 function rewindMedia(media){try{media.currentTime=0;}catch{ /* Some mobile browsers reject seeks before metadata is available. */ }}
 function resetSoundPlayback(){magellanBgmGain=1;requestedVoiceMedia=null;lastRifleSound=-Infinity;voiceEpoch++;voicePending=null;voiceRemaining=0;charMoveActive=false;for(const pool of Object.values(sfxPool))for(const media of pool){media.pause();rewindMedia(media);media.volume=.9;}}
 function startSoundMedia(media){media.muted=false;return media.play();}
@@ -230,7 +230,7 @@ function luna2ArtTasks(){
  images.luna2Tiles={};
  return maze.tileIds.map(id=>async()=>{
   const im=new Image();
-  im.src='game-assets/backgrounds/stage4/luna2-tile-'+id+'-open.png?v=281';
+  im.src='game-assets/backgrounds/stage4/luna2-tile-'+id+'-open.png?v=284';
   await decodeImage(im);
   const sample=document.createElement('canvas');
   sample.width=maze.tileCols;sample.height=maze.tileRows;
@@ -349,7 +349,7 @@ function stopIntermission(){intermissionEpoch++;intermissionActive=false;$('inte
 function playIntermission(){if(!intermissionActive||document.hidden)return;const epoch=intermissionEpoch;$('eyecatch-resume').style.display='none';try{const playback=$('eyecatch-video').play();playback?.catch(()=>{if(intermissionActive&&epoch===intermissionEpoch)$('eyecatch-resume').style.display='block';});}catch{if(intermissionActive)$('eyecatch-resume').style.display='block';}}
 function beginIntermission(){if(intermissionActive||(state!=='clear'&&!(state==='paused'&&pausedFrom==='clear')))return;stopAllAudio();window.resultCounterSound(false);$('arcade-results').style.display='none';$('arcade-results').src='about:blank';$('overlay').style.display='none';keys.clear();releaseTouch();intermissionActive=true;intermissionEpoch++;state='intermission';$('eyecatch-video').style.visibility='hidden';rewindMedia($('eyecatch-video'));$('eyecatch-video').volume=1;$('intermission').style.display='flex';$('eyecatch-video').style.visibility='visible';$('eyecatch-resume').textContent='タップして再生';$('eyecatch-resume').onclick=playIntermission;playIntermission();}
 function finishIntermission(){if(!intermissionActive)return;stopIntermission();state='clear';if(stageNumber<5)nextStage();else reset();render();}
-$('eyecatch-video').src='game-assets/video/gundam-eyecatch.mp4?v=281';
+$('eyecatch-video').src='game-assets/video/gundam-eyecatch.mp4?v=284';
 $('eyecatch-video').onended=finishIntermission;
 $('eyecatch-video').onerror=()=>{if(intermissionActive){$('eyecatch-resume').textContent='次へ進む';$('eyecatch-resume').style.display='block';$('eyecatch-resume').onclick=finishIntermission;}};
 function nextStage(){if((state!=='clear'&&!(state==='paused'&&pausedFrom==='clear'))||stageNumber>=5)return;const equipment={speed:player.speed,missile:player.missile,double:player.double,laser:player.laser,options:player.options,evolved:player.evolved,shield:player.shield,rapid:player.rapid,spread:player.spread,hammer:player.hammer,javelin:player.javelin,javelinVertical:!!player.javelinVertical,hp:player.hp,equipmentHistory:(player.equipmentHistory||[]).map(entry=>({...entry,before:{...entry.before}}))},previousScore=score,previousLives=lives;stageNumber++;groundStage=null;images.battlefield=images.spaceBattlefield;reset(false,true);Object.assign(player,equipment);score=previousScore;lives=previousLives;hud();}
